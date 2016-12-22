@@ -252,6 +252,9 @@ if ( ! class_exists( 'Book_Database' ) ) :
 			require_once BDB_DIR . 'includes/template-functions.php';
 			require_once BDB_DIR . 'includes/term-functions.php';
 
+			// Widgets
+			require_once BDB_DIR . 'includes/widgets/class-bdb-reading-log-widget.php';
+
 			if ( is_admin() ) {
 				require_once BDB_DIR . 'includes/admin/admin-actions.php';
 				require_once BDB_DIR . 'includes/admin/admin-pages.php';
