@@ -198,6 +198,15 @@ class BDB_Book_Query {
 	protected $books;
 
 	/**
+	 * MySQL query
+	 *
+	 * @var string
+	 * @access protected
+	 * @since  1.0
+	 */
+	protected $query;
+
+	/**
 	 * BDB_Book_Query constructor.
 	 *
 	 * @param array  $args       Query arguments.
@@ -253,8 +262,9 @@ class BDB_Book_Query {
 		$this->return_books_only = $args['return_books_only'];
 
 		if ( 'reviews' == $this->query_type ) {
-			$primary_select = 'DISTINCT review.ID as review_id, book.ID as book_id';
-			$this->group_by = 'review.ID';
+			$primary_select          = 'DISTINCT review.ID as review_id, book.ID as book_id';
+			$this->group_by          = 'review.ID';
+			$this->return_books_only = false;
 		} else {
 			$primary_select = 'DISTINCT book.ID as book_id';
 			$this->group_by = 'book.ID';
@@ -284,6 +294,7 @@ class BDB_Book_Query {
 			'author'          => 'author.name',
 			'date'            => 'date_published',
 			'date_written'    => 'date_written',
+			'date_published'  => 'date_published',
 			'date_started'    => 'log.date_started',
 			'date_finished'   => 'log.date_finished',
 			'pub_date'        => 'book.pub_date',
@@ -544,12 +555,6 @@ class BDB_Book_Query {
 		 * Where clauses
 		 */
 
-		// If reviews only, only show published ones.
-		if ( 'reviews' == $this->query_type ) {
-			$current = get_gmt_from_date( 'now', 'Y-m-d H:i:s' );
-			$where   .= $wpdb->prepare( " AND `date_published` <= %s", $current );
-		}
-
 		// Specific books.
 		if ( $this->query_vars['ids'] ) {
 			if ( is_array( $this->query_vars['ids'] ) ) {
@@ -763,8 +768,9 @@ class BDB_Book_Query {
 		}
 
 		// Get the final results.
-		$cache_key = md5( 'bdb_book_query_' . serialize( $this->query_vars ) );
-		$books     = wp_cache_get( $cache_key, 'book_query' );
+		$cache_key   = md5( 'bdb_book_query_' . serialize( $this->query_vars ) );
+		$books       = wp_cache_get( $cache_key, 'book_query' );
+		$this->query = $query;
 
 		if ( false === $books ) {
 			$books = $wpdb->get_results( $query . $pagination );
@@ -777,6 +783,17 @@ class BDB_Book_Query {
 
 		$this->books = wp_unslash( $books );
 
+	}
+
+	/**
+	 * Return the MySQL query used.
+	 *
+	 * @access public
+	 * @since  1.0
+	 * @return string
+	 */
+	public function get_query() {
+		return $this->query;
 	}
 
 	/**

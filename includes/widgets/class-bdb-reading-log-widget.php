@@ -145,7 +145,7 @@ class BDB_Reading_Log_Widget extends WP_Widget {
 	 */
 	public function query_books( $number = 5 ) {
 
-		$books = get_transient( 'bdb_reading_log_widget' );
+		$books = get_transient( 'bdb_reading_log_widget_' . $this->id );
 
 		if ( false === $books ) {
 
@@ -177,7 +177,7 @@ class BDB_Reading_Log_Widget extends WP_Widget {
 				$books = wp_unslash( $books );
 			}
 
-			set_transient( 'bdb_reading_log_widget', $books, DAY_IN_SECONDS );
+			set_transient( 'bdb_reading_log_widget_' . $this->id, $books, DAY_IN_SECONDS );
 
 		}
 
@@ -254,7 +254,7 @@ class BDB_Reading_Log_Widget extends WP_Widget {
 		$instance['show_ratings'] = ( isset( $new_instance['show_ratings'] ) ) ? true : false;
 
 		// Clear transient.
-		delete_transient( 'bdb_reading_log_widget' );
+		delete_transient( 'bdb_reading_log_widget_' . $this->id );
 
 		return $instance;
 

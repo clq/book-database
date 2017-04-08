@@ -255,6 +255,7 @@ if ( ! class_exists( 'Book_Database' ) ) :
 
 			// Widgets
 			require_once BDB_DIR . 'includes/widgets/class-bdb-reading-log-widget.php';
+			require_once BDB_DIR . 'includes/widgets/class-bdb-reviews-widget.php';
 
 			if ( is_admin() ) {
 				require_once BDB_DIR . 'includes/admin/admin-actions.php';
