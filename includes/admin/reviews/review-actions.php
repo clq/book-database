@@ -3,7 +3,7 @@
  * Review Actions
  *
  * @package   book-database
- * @copyright Copyright (c) 2016, Ashley Gibson
+ * @copyright Copyright (c) 2017, Ashley Gibson
  * @license   GPL2+
  */
 
@@ -179,13 +179,43 @@ function bdb_review_insert_reading_log_field( $review ) {
 		$reading_entry = bdb_get_review_reading_entry( $review->ID );
 	}
 
-	book_database()->html->meta_row( 'checkbox', array( 'label' => __( 'Insert Reading Log', 'book-database' ) ), array(
-		'id'      => 'insert_reading_log',
-		'name'    => 'insert_reading_log',
-		'current' => $reading_entry ? 1 : false
+	// Get all the entries associated with this book.
+	$all_book_entries = book_database()->reading_list->get_entries( array( 'book_id' => $review->book_id ) );
+	$choose_entries   = array();
+
+	if ( is_array( $all_book_entries ) ) {
+		foreach ( $all_book_entries as $entry ) {
+			$rating                       = new BDB_Rating( $entry->rating );
+			$choose_entries[ $entry->ID ] = sprintf( '%s - %s (%s)', bdb_format_mysql_date( $entry->date_started ), bdb_format_mysql_date( $entry->date_finished ), $rating->format_text() );
+		}
+	}
+
+	book_database()->html->meta_row( 'select', array( 'label' => __( 'Associate Reading Log', 'book-database' ) ), array(
+		'id'               => 'insert_reading_log',
+		'name'             => 'insert_reading_log',
+		'selected'         => is_object( $reading_entry ) ? 'existing' : '-1',
+		'show_option_all'  => false,
+		'show_option_none' => _x( 'None', 'no dropdown items', 'book-database' ),
+		'options'          => array(
+			'existing' => esc_html__( 'Choose from existing entries', 'book-database' ),
+			'create'   => esc_html__( 'Create new entry', 'book-database' )
+		)
 	) );
 	?>
-    <div id="bookdb-review-reading-log-fields">
+	<div id="bookdb-review-existing-reading-log-fields">
+		<?php
+		book_database()->html->meta_row( 'select', array( 'label' => __( 'Select Existing Entry', 'book-database' ) ), array(
+			'id'               => 'reading_log_id',
+			'name'             => 'reading_log_id',
+			'selected'         => is_object( $reading_entry ) ? $reading_entry->ID : '-1',
+			'show_option_all'  => false,
+			'show_option_none' => _x( 'None', 'no dropdown items', 'book-database' ),
+			'options'          => $choose_entries
+		) );
+		?>
+	</div>
+
+	<div id="bookdb-review-new-reading-log-fields">
 		<?php
 		// Start Date
 		book_database()->html->meta_row( 'text', array(
@@ -249,7 +279,7 @@ function bdb_review_insert_reading_log_field( $review ) {
 			'show_option_none' => _x( 'None', 'no dropdown items', 'book-database' )
 		) );
 		?>
-    </div>
+	</div>
 	<?php
 }
 
@@ -277,17 +307,17 @@ function bdb_review_show_associated_book( $review ) {
 	}
 
 	?>
-    <div class="postbox">
-        <h2><?php _e( 'Associated Book', 'book-database' ); ?></h2>
-        <div class="inside">
+	<div class="postbox">
+		<h2><?php _e( 'Associated Book', 'book-database' ); ?></h2>
+		<div class="inside">
 			<?php do_action( 'book-database/review-edit/associated-book/before', $review, $book ); ?>
-            <div id="bookdb-book-associated-with-review">
+			<div id="bookdb-book-associated-with-review">
 				<?php echo $book->get_formatted_info(); ?>
-                <a href="<?php echo esc_url( bdb_get_admin_page_edit_book( $book->ID ) ); ?>" class="button"><?php _e( 'Edit book in admin panel', 'book-database' ); ?></a>
-            </div>
+				<a href="<?php echo esc_url( bdb_get_admin_page_edit_book( $book->ID ) ); ?>" class="button"><?php _e( 'Edit book in admin panel', 'book-database' ); ?></a>
+			</div>
 			<?php do_action( 'book-database/review-edit/associated-book/after', $review, $book ); ?>
-        </div>
-    </div>
+		</div>
+	</div>
 	<?php
 }
 
@@ -351,7 +381,7 @@ function bdb_save_review() {
 		$review_data['date_published'] = $_POST['review_date_published'];
 	} else {
 		$review_data['date_published'] = null;
-  }
+	}
 
 	$new_review_id = bdb_insert_review( apply_filters( 'book-database/review/save/review-data', $review_data, $review_id, $_POST ) );
 
@@ -362,28 +392,57 @@ function bdb_save_review() {
 	/*
 	 * Maybe save reading log.
 	 */
-	if ( isset( $_POST['insert_reading_log'] ) ) {
+	if ( isset( $_POST['insert_reading_log'] ) && '-1' != $_POST['insert_reading_log'] ) {
 
-		$reading_data = array(
-			'book_id'       => $review_data['book_id'],
-			'review_id'     => $new_review_id,
-			'user_id'       => absint( $_POST['reading_user_id'] ),
-			'date_started'  => $_POST['reading_start_date'],
-			'date_finished' => $_POST['reading_end_date'],
-			'complete'      => $_POST['percent_complete'],
-			'rating'        => $_POST['book_rating']
-		);
+		$result = false;
 
-		$existing_log = bdb_get_review_reading_entry( $new_review_id );
+		// Create new log
+		if ( 'create' == $_POST['insert_reading_log'] ) {
 
-		if ( $existing_log ) {
-			$reading_data['ID'] = $existing_log->ID;
+			$reading_data = array(
+				'book_id'       => $review_data['book_id'],
+				'review_id'     => $new_review_id,
+				'user_id'       => absint( $_POST['reading_user_id'] ),
+				'date_started'  => $_POST['reading_start_date'],
+				'date_finished' => $_POST['reading_end_date'],
+				'complete'      => $_POST['percent_complete'],
+				'rating'        => $_POST['book_rating']
+			);
+
+			$result = bdb_insert_reading_entry( $reading_data );
+
+		} elseif ( 'existing' == $_POST['insert_reading_log'] && '-1' != $_POST['reading_log_id'] ) {
+
+			$result = book_database()->reading_list->update( absint( $_POST['reading_log_id'] ), array( 'review_id' => $new_review_id ) );
+
+		} else {
+
+			// Find any logs with this review and disassociate.
+			$logs = book_database()->reading_list->get_entries( array( 'review_id' => $new_review_id ) );
+
+			if ( is_array( $logs ) && ! empty( $logs ) ) {
+				foreach ( $logs as $log ) {
+					book_database()->reading_list->update( $log->ID, array( 'review_id' => 0 ) );
+				}
+			}
+
+			$result = true;
+
 		}
-
-		$result = bdb_insert_reading_entry( $reading_data );
 
 		if ( ! $result || is_wp_error( $result ) ) {
 			wp_die( __( 'An error ocurred while inserting the reading data.', 'book-database' ) );
+		}
+
+	} else {
+
+		// Find any logs with this review and disassociate.
+		$logs = book_database()->reading_list->get_entries( array( 'review_id' => $new_review_id ) );
+
+		if ( is_array( $logs ) && ! empty( $logs ) ) {
+			foreach ( $logs as $log ) {
+				book_database()->reading_list->update( $log->ID, array( 'review_id' => 0 ) );
+			}
 		}
 
 	}

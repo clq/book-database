@@ -5,7 +5,7 @@
  * Primarily functions used in BDB_Book::get_formatted_info()
  *
  * @package   book-database
- * @copyright Copyright (c) 2016, Ashley Gibson
+ * @copyright Copyright (c) 2017, Ashley Gibson
  * @license   GPL2+
  */
 
@@ -524,7 +524,7 @@ add_filter( 'book-database/book/formatted-info/value/rating', 'bdb_book_layout_r
  * @return string
  */
 function bdb_book_layout_synopsis( $value, $enabled_fields, $book_id, $book ) {
-	return $book->get_synopsis();
+	return wpautop( $book->get_synopsis() );
 }
 
 add_filter( 'book-database/book/formatted-info/value/synopsis', 'bdb_book_layout_synopsis', 10, 4 );

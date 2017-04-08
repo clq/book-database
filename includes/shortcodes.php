@@ -3,7 +3,7 @@
  * Shortcodes
  *
  * @package   book-database
- * @copyright Copyright (c) 2016, Ashley Gibson
+ * @copyright Copyright (c) 2017, Ashley Gibson
  * @license   GPL2+
  */
 
@@ -55,7 +55,7 @@ function bdb_review_index_shortcode( $atts, $content = '' ) {
 		'orderby' => 'title', // title, author, date, pub_date, series_position, pages
 		'order'   => 'ASC', // ASC, DESC
 		'letters' => 'yes' // yes, no
-	), $atts, 'book' );
+	), $atts, 'review-index' );
 
 	$output = '';
 
@@ -148,6 +148,116 @@ function bdb_book_reviews_shortcode( $atts, $content = '' ) {
 }
 
 add_shortcode( 'book-reviews', 'bdb_book_reviews_shortcode' );
+
+/**
+ * Book Grid
+ *
+ * Similar to `[book-reviews]` but filtering is done via shortcode attributes
+ * instead of a front-end form. It can also show books that have not been reviewed.
+ *
+ * @param array  $atts    Shortcode attributes.
+ * @param string $content Shortcode content.
+ *
+ * @since 1.3.0
+ * @return string
+ */
+function bdb_book_grid_shortcode( $atts, $content = '' ) {
+
+	$default_atts = array(
+		'ids'                 => false, // for specific books
+		'author'              => false,
+		'series'              => false,
+		'rating'              => false,
+		'year'                => false, // review written year
+		'month'               => false, // review written month
+		'day'                 => false, // review written day
+		'start-date'          => false, // pub start date
+		'end-date'            => false, // pub end date
+		'review-start-date'   => false, // review pub start date
+		'review-end-date'     => false, // review pub end date
+		'pub-year'            => false,
+		'show-ratings'        => false,
+		'show-review-link'    => false,
+		'show-goodreads-link' => false,
+		'reviews-only'        => false,
+		'orderby'             => 'id',
+		'order'               => 'DESC',
+		'image-size'          => 'large',
+		'number'              => 20
+	);
+
+	foreach ( bdb_get_taxonomies() as $id => $options ) {
+		$default_atts[ $id ] = false;
+	}
+
+	$atts = shortcode_atts( $default_atts, $atts, 'book-grid' );
+
+	$query_args = $term_args = array();
+
+	$query_args['ids']                 = ! empty( $atts['ids'] ) ? explode( ',', $atts['ids'] ) : null;
+	$query_args['author_name']         = $atts['author'];
+	$query_args['series_name']         = $atts['series'];
+	$query_args['rating']              = $atts['rating'];
+	$query_args['year']                = $atts['year'];
+	$query_args['month']               = $atts['month'];
+	$query_args['day']                 = $atts['day'];
+	$query_args['pub_year']            = $atts['pub-year'];
+	$query_args['orderby']             = $atts['orderby'];
+	$query_args['order']               = $atts['order'];
+	$query_args['number']              = intval( $atts['number'] );
+	$query_args['show_ratings']        = ( $atts['show-ratings'] ) ? true : false;
+	$query_args['show_review_link']    = ( $atts['show-review-link'] ) ? true : false;
+	$query_args['show_goodreads_link'] = ( $atts['show-goodreads-link'] ) ? true : false;
+	$query_args['reviews_only']        = ( $atts['reviews-only'] ) ? true : false;
+
+	// Setup book publish date
+	if ( $atts['start-date'] ) {
+		$query_args['pub_date']['start'] = $atts['start-date'];
+	}
+	if ( $atts['end-date'] ) {
+		$query_args['pub_date']['end'] = $atts['end-date'];
+	}
+
+	// Setup review publish date
+	if ( $atts['review-start-date'] ) {
+		$query_args['review_date']['start'] = $atts['review-start-date'];
+	}
+	if ( $atts['review-end-date'] ) {
+		$query_args['review_date']['end'] = $atts['review-end-date'];
+	}
+
+	// Setup terms.
+	foreach ( bdb_get_taxonomies() as $id => $options ) {
+		if ( array_key_exists( $id, $atts ) && false !== $atts[ $id ] && is_numeric( $atts[ $id ] ) ) {
+			$term_args[ $id ] = absint( $atts[ $id ] );
+		}
+	}
+
+	if ( ! empty( $term_args ) ) {
+		$query_args['terms'] = $term_args;
+	}
+
+	$query = new BDB_Book_Query( $query_args );
+	$query->query();
+	$template = bdb_get_template_part( 'shortcode-book-grid-entry', '', false );
+
+	ob_start();
+
+	if ( $query->have_books() && ! empty( $template ) ) {
+		echo '<div class="book-reviews-list">';
+		foreach ( $query->get_books() as $entry ) {
+			include $template;
+		}
+		echo '</div>';
+	} else {
+		echo '<p>' . __( 'No books found.', 'book-database' ) . '</p>';
+	}
+
+	return ob_get_clean();
+
+}
+
+add_shortcode( 'book-grid', 'bdb_book_grid_shortcode' );
 
 /**
  * Filter: Title
@@ -355,7 +465,7 @@ function bdb_reviews_filter_form_orderby( $vars, $query, $atts, $content ) {
 			'id'               => 'bookdb-orderby',
 			'name'             => 'orderby',
 			'selected'         => sanitize_text_field( $vars['orderby'] ),
-			'options'          => bdb_get_allowed_orderby(),
+			'options'          => apply_filters( 'book-database/shortcodes/book-reviews/orderby-options', bdb_get_allowed_orderby() ),
 			'show_option_all'  => false,
 			'show_option_none' => false
 		) ); ?>
