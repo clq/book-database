@@ -89,7 +89,7 @@ class BDB_Reading_Log_Widget extends WP_Widget {
 				if ( $show_ratings ) {
 					$rating = new BDB_Rating( $book->rating );
 
-					echo '<span class="bookdb-reading-log-rating ' . esc_attr( $rating->format_html_class() ) . '">' . $rating->format_html_stars() . '</span>';
+					echo '<div class="bookdb-reading-log-rating ' . esc_attr( $rating->format_html_class() ) . '">' . $rating->format_html_stars() . '</div>';
 				}
 
 				echo '</div>';
